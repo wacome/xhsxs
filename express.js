@@ -138,6 +138,56 @@ app.post('/api/get-task-id', async (req, res) => {
     }
 });
 
+app.get('/api/check-task-status', async (req, res) => {
+    try {
+        // --- FIX: Read from req.query for GET requests, not req.body ---
+        const { taskid, cookie } = req.query; 
+
+        // Add validation for the query parameters
+        if (!taskid || !cookie) {
+            return res.status(400).json({ error: "Please provide 'taskid' and 'cookie' as query parameters." });
+        }
+        
+        // --- The rest of your logic remains the same ---
+        const targetUrl = `https://ad.xiaohongshu.com/api/leona/longTask/download/task/status?task_id=${taskid}`;
+        
+        const hardcoded_e = "/api/sec/v1/sbtsource";
+        const hardcoded_t = { "callFrom": "web" };
+        const signatureData = generateSignatureHeaders(hardcoded_e, hardcoded_t);
+        const xs = signatureData["X-s"];
+        const xt = String(signatureData["X-t"]); // Ensure x-t is a string
+
+        const headersForFetch = {
+            "accept": "application/json, text/plain, */*",
+            "accept-language": "zh-CN,zh;q=0.9",
+            "sec-ch-ua": "\"Chromium\";v=\"136\", \"Google Chrome\";v=\"136\", \"Not.A/Brand\";v=\"99\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "x-b3-traceid": "2fff141fa4e28bef",
+            "x-s": xs,
+            "x-t": xt,
+            "cookie": cookie,
+            "Referer": "https://ad.xiaohongshu.com/aurora/ad/datareports-basic/campaign",
+            "Referrer-Policy": "strict-origin-when-cross-origin"
+        };
+
+        const response = await fetch(targetUrl, {
+            method: 'GET',
+            headers: headersForFetch
+        });
+
+        const data = await response.json();
+        res.status(response.status).json(data);
+
+    } catch (error) {
+        console.error("Error in proxy fetch:", error);
+        res.status(500).json({ error: "Internal Server Error", details: error.message });
+    }
+});
+
 // ===================================================================
 // == 4. 启动服务器
 // ===================================================================
