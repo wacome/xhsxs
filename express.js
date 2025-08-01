@@ -3,10 +3,15 @@
 // 1. 引入所需模块
 const express = require('express');
 const crypto = require('crypto');
+// Correctly import node-fetch for CommonJS
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 // 2. 定义 Express 应用和端口
 const app = express();
 const PORT = 3000;
+
+// Middleware to parse JSON request bodies, needed for the new endpoint
+app.use(express.json());
 
 // ===================================================================
 // == 核心签名逻辑 (与之前版本保持一致)
@@ -49,32 +54,88 @@ function generateSignatureHeaders(e, t = {}) {
 }
 
 // ===================================================================
-// == 3. 创建API端点 (核心修改部分)
+// == 3. 创建API端点
 // ===================================================================
 
 app.get('/api/get-signature', (req, res) => {
     try {
-        // 直接在这里定义写死的 e 和 t 参数
         const hardcoded_e = "/api/sec/v1/sbtsource";
         const hardcoded_t = { "callFrom": "web" };
-
-        console.log(`Received request. Generating signature with hardcoded params: e='${hardcoded_e}', t=${JSON.stringify(hardcoded_t)}`);
-
-        // 调用核心逻辑生成签名对象
         const signatureData = generateSignatureHeaders(hardcoded_e, hardcoded_t);
-
-        // 将生成的对象作为JSON响应返回
         res.status(200).json(signatureData);
-
     } catch (error) {
         console.error("Error generating signature:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
-// 默认根路径的欢迎信息
-app.get('/', (req, res) => {
-    res.send('Hardcoded signature server is running. Please GET from /api/get-signature.');
+// Changed to POST to accept start_date and end_date in the body
+app.post('/api/get-task-id', async (req, res) => {
+    try {
+        // Get dates from the request body
+        const { start_date, end_date, cookie } = req.body;
+        if (!start_date || !end_date || !cookie) {
+            return res.status(400).json({ error: "Please provide 'start_date' and 'end_date' amd 'cookie' in the request body." });
+        }
+
+        const hardcoded_e = "/api/sec/v1/sbtsource";
+        const hardcoded_t = { "callFrom": "web" };
+        const signatureData = generateSignatureHeaders(hardcoded_e, hardcoded_t);
+        const xs = signatureData["X-s"];
+        const xt = signatureData["X-t"];
+
+        // Corrected body construction
+        const requestBody = {
+            task_name: "leona_ad_common_data_report_download",
+            input: {
+                extra: {
+                    v_seller_id: "658294f2bbe74b0001262038",
+                    columns: ["campaignName", "campaignId", "fee", "impression", "click", "ctr", "acp", "cpm", "like", "comment", "collect", "follow", "share", "interaction", "cpi", "actionButtonClick", "actionButtonCtr", "screenshot", "picSave", "reservePV", "liveSubscribeCnt", "liveSubscribeCntCost", "searchCmtClick", "searchCmtClickCvr", "searchCmtAfterReadAvg", "searchCmtAfterRead", "clkLiveRoomOrderNum", "liveAverageOrderCost", "clkLiveRoomRgmv", "clkLiveRoomRoi", "searchFirstShowImpRate", "searchFirstShowClickRate", "mTransAddWechatMessageUserCnt", "mTransAddWechatMessageUserCost", "mTransAddWechatSucMessageClueUidCnt", "mTransAddWechatSucMessageClueUidCost"],
+                    split_columns: [],
+                    need_total: true,
+                    need_list: true,
+                    need_size: true,
+                    time_unit: "DAY",
+                    page_size: 20,
+                    page_num: 1,
+                    sorts: [],
+                    report_type: "CAMPAIGN",
+                    start_date: start_date,
+                    end_date: end_date,
+                    filters: []
+                }
+            },
+            source: "web",
+            module_name: "leona"
+        };
+        
+        const response = await fetch("https://ad.xiaohongshu.com/api/leona/longTask/download/commit_task", {
+            method: "POST",
+            headers: {
+                "accept": "application/json, text/plain, */*",
+                "content-type": "application/json",
+                "x-s": xs,
+                "x-t": xt,
+                "cookie": cookie,
+                "Referer": "https://ad.xiaohongshu.com/aurora/ad/datareports-basic/campaign",
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            // If the external API call fails, send back its status and message
+            const errorText = await response.text();
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        }
+
+        const data = await response.json();
+        // Assuming the actual task ID is in a field like 'data' in the response
+        res.status(200).json(data['data']['task_id']); 
+
+    } catch (error) {
+        console.error("Error fetching task ID:", error);
+        res.status(500).json({ error: "Internal Server Error", message: error.message });
+    }
 });
 
 // ===================================================================
@@ -82,6 +143,5 @@ app.get('/', (req, res) => {
 // ===================================================================
 
 app.listen(PORT, () => {
-    console.log(`✅ Hardcoded signature server is running on http://localhost:${PORT}`);
-    console.log(`🚀 Send GET requests to http://localhost:${PORT}/api/get-signature`);
+    console.log(`✅ Server is running on http://localhost:${PORT}`);
 });
