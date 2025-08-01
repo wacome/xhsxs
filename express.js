@@ -180,7 +180,7 @@ app.get('/api/check-task-status', async (req, res) => {
         });
 
         const data = await response.json();
-        res.status(response.status).json(data);
+        res.status(response.status).json(data['data']);
 
     } catch (error) {
         console.error("Error in proxy fetch:", error);
