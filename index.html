@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI 数据分析助手</title>
+    <!-- MODIFIED: Added marked.js for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root { --primary-color: #4A90E2; --user-msg-bg: #4A90E2; --assistant-msg-bg: #FFFFFF; --system-msg-bg: #eef2f7; --bg-color: #f4f7f9; --font-color: #333; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: var(--bg-color); display: flex; justify-content: center; align-items: flex-start; padding-top: 20px; }
@@ -25,6 +27,11 @@
         .message-content { max-width: 85%; padding: 10px 15px; border-radius: 12px; line-height: 1.6; word-wrap: break-word; white-space: pre-wrap; }
         .message.user .message-content { background-color: var(--user-msg-bg); color: white; border-bottom-right-radius: 3px; }
         .message.assistant .message-content { background-color: var(--assistant-msg-bg); color: var(--font-color); border: 1px solid #eee; border-bottom-left-radius: 3px; }
+        /* Styles for Markdown rendering */
+        .message.assistant .message-content h1, .message.assistant .message-content h2, .message.assistant .message-content h3 { margin-top: 10px; margin-bottom: 5px; }
+        .message.assistant .message-content ul, .message.assistant .message-content ol { padding-left: 20px; }
+        .message.assistant .message-content code { background-color: #eee; padding: 2px 4px; border-radius: 4px; font-family: monospace; }
+        .message.assistant .message-content pre { background-color: #2d2d2d; color: white; padding: 10px; border-radius: 8px; overflow-x: auto; }
         .message.system .message-content { background-color: var(--system-msg-bg); color: #557; font-size: 12px; text-align: center; padding: 5px 10px; border-radius: 8px; align-self: center; }
         .chat-input-area { padding: 15px; border-top: 1px solid #e0e0e0; display: flex; }
         #chat-input { flex-grow: 1; border: 1px solid #ccc; border-radius: 20px; padding: 10px 15px; font-size: 14px; resize: none; margin-right: 10px; }
@@ -64,284 +71,13 @@
 
     <script>
     const REPORT_TYPE_MAP = {
-        '广告账户': { report_type: 'account', columns: [
-  "fee",
-  "impression",
-  "click",
-  "ctr",
-  "acp",
-  "cpm",
-  "like",
-  "comment",
-  "collect",
-  "follow",
-  "share",
-  "interaction",
-  "cpi",
-  "actionButtonClick",
-  "actionButtonCtr",
-  "screenshot",
-  "picSave",
-  "reservePV",
-  "liveSubscribeCnt",
-  "liveSubscribeCntCost",
-  "searchCmtClick",
-  "searchCmtClickCvr",
-  "searchCmtAfterReadAvg",
-  "searchCmtAfterRead",
-  "clkLiveRoomOrderNum",
-  "liveAverageOrderCost",
-  "clkLiveRoomRgmv",
-  "clkLiveRoomRoi",
-  "mTransAddWechatMessageUserCnt",
-  "mTransAddWechatMessageUserCost",
-  "mTransAddWechatSucMessageClueUidCnt",
-  "mTransAddWechatSucMessageClueUidCost"
-] },
-        '广告计划': { report_type: 'campaign', columns: [
-  "campaignName",
-  "campaignId",
-  "fee",
-  "impression",
-  "click",
-  "ctr",
-  "acp",
-  "cpm",
-  "like",
-  "comment",
-  "collect",
-  "follow",
-  "share",
-  "interaction",
-  "cpi",
-  "actionButtonClick",
-  "actionButtonCtr",
-  "screenshot",
-  "picSave",
-  "reservePV",
-  "liveSubscribeCnt",
-  "liveSubscribeCntCost",
-  "searchCmtClick",
-  "searchCmtClickCvr",
-  "searchCmtAfterReadAvg",
-  "searchCmtAfterRead",
-  "clkLiveRoomOrderNum",
-  "liveAverageOrderCost",
-  "clkLiveRoomRgmv",
-  "clkLiveRoomRoi",
-  "searchFirstShowImpRate",
-  "searchFirstShowClickRate",
-  "mTransAddWechatMessageUserCnt",
-  "mTransAddWechatMessageUserCost",
-  "mTransAddWechatSucMessageClueUidCnt",
-  "mTransAddWechatSucMessageClueUidCost"
-] },
-        '广告单元': { report_type: 'unit', columns: [
-  "unitName",
-  "unitId",
-  "campaignName",
-  "campaignId",
-  "fee",
-  "impression",
-  "click",
-  "ctr",
-  "acp",
-  "cpm",
-  "like",
-  "comment",
-  "collect",
-  "follow",
-  "share",
-  "interaction",
-  "cpi",
-  "actionButtonClick",
-  "actionButtonCtr",
-  "screenshot",
-  "picSave",
-  "reservePV",
-  "liveSubscribeCnt",
-  "liveSubscribeCntCost",
-  "searchCmtClick",
-  "searchCmtClickCvr",
-  "searchCmtAfterReadAvg",
-  "searchCmtAfterRead",
-  "clkLiveRoomOrderNum",
-  "liveAverageOrderCost",
-  "clkLiveRoomRgmv",
-  "clkLiveRoomRoi",
-  "searchFirstShowImpRate",
-  "searchFirstShowClickRate",
-  "mTransAddWechatMessageUserCnt",
-  "mTransAddWechatMessageUserCost",
-  "mTransAddWechatSucMessageClueUidCnt",
-  "mTransAddWechatSucMessageClueUidCost"
-] },
-        '广告创意': { report_type: 'creativity', columns: [
-  "creativityImage",
-  "creativityName",
-  "creativityId",
-  "noteId",
-  "unitName",
-  "unitId",
-  "campaignName",
-  "campaignId",
-  "programmatic",
-  "fee",
-  "impression",
-  "click",
-  "ctr",
-  "acp",
-  "cpm",
-  "like",
-  "comment",
-  "collect",
-  "follow",
-  "share",
-  "interaction",
-  "cpi",
-  "actionButtonClick",
-  "actionButtonCtr",
-  "screenshot",
-  "picSave",
-  "reservePV",
-  "liveSubscribeCnt",
-  "liveSubscribeCntCost",
-  "searchCmtClick",
-  "searchCmtClickCvr",
-  "searchCmtAfterReadAvg",
-  "searchCmtAfterRead",
-  "clkLiveRoomOrderNum",
-  "liveAverageOrderCost",
-  "clkLiveRoomRgmv",
-  "clkLiveRoomRoi",
-  "mTransAddWechatMessageUserCnt",
-  "mTransAddWechatMessageUserCost",
-  "mTransAddWechatSucMessageClueUidCnt",
-  "mTransAddWechatSucMessageClueUidCost"
-] },
-        '笔记': { report_type: 'note', columns: [
-  "noteId",
-  "fee",
-  "impression",
-  "click",
-  "ctr",
-  "acp",
-  "cpm",
-  "like",
-  "comment",
-  "collect",
-  "follow",
-  "share",
-  "interaction",
-  "cpi",
-  "actionButtonClick",
-  "actionButtonCtr",
-  "screenshot",
-  "picSave",
-  "reservePV",
-  "liveSubscribeCnt",
-  "liveSubscribeCntCost",
-  "searchCmtClick",
-  "searchCmtClickCvr",
-  "searchCmtAfterReadAvg",
-  "searchCmtAfterRead",
-  "clkLiveRoomOrderNum",
-  "liveAverageOrderCost",
-  "clkLiveRoomRgmv",
-  "clkLiveRoomRoi",
-  "mTransAddWechatMessageUserCnt",
-  "mTransAddWechatMessageUserCost",
-  "mTransAddWechatSucMessageClueUidCnt",
-  "mTransAddWechatSucMessageClueUidCost",
-  "noteMaterialType"
-] },
-        '关键词': { report_type: 'keyword', columns: [
-  "keyword",
-  "unitName",
-  "unitId",
-  "campaignName",
-  "campaignId",
-  "fee",
-  "impression",
-  "click",
-  "ctr",
-  "acp",
-  "cpm",
-  "dmpGroupNum",
-  "like",
-  "comment",
-  "collect",
-  "follow",
-  "share",
-  "interaction",
-  "cpi",
-  "actionButtonClick",
-  "actionButtonCtr",
-  "screenshot",
-  "picSave",
-  "reservePV",
-  "liveSubscribeCnt",
-  "liveSubscribeCntCost",
-  "clkLiveRoomOrderNum",
-  "liveAverageOrderCost",
-  "clkLiveRoomRgmv",
-  "clkLiveRoomRoi",
-  "wordAvgLocation",
-  "wordImpressionRankFirst",
-  "wordImpressionRateFirst",
-  "wordImpressionRankThird",
-  "wordImpressionRateThird",
-  "wordClickRankFirst",
-  "wordClickRateFirst",
-  "wordClickRankThird",
-  "wordClickRateThird",
-  "mTransAddWechatMessageUserCnt",
-  "mTransAddWechatMessageUserCost",
-  "mTransAddWechatSucMessageClueUidCnt",
-  "mTransAddWechatSucMessageClueUidCost"
-] },
-        '私信': { report_type: 'message', columns: [
-  "creativityImage",
-  "creativityName",
-  "creativityId",
-  "noteId",
-  "unitName",
-  "unitId",
-  "campaignName",
-  "campaignId",
-  "programmatic",
-  "fee",
-  "impression",
-  "click",
-  "ctr",
-  "acp",
-  "cpm",
-  "messageConsult",
-  "msgLeadsNum",
-  "messageUser",
-  "msgLeadsUserCnt",
-  "messageConsultCpl",
-  "msgLeadsCost",
-  "initiativeMessage",
-  "messageDrivingOpenRatio",
-  "initiativeMessageCpl",
-  "msgChatUserCnt",
-  "message",
-  "fstMessageReplyIn15sRate",
-  "messageFstReplyTimeAvg",
-  "messageReplyIn30sRate",
-  "messageReplyIn1MinRate",
-  "userPageViewPv",
-  "userPageViewUv",
-  "userPageMessageUserCnt",
-  "userPageMessageCnt",
-  "messageCmtImp",
-  "messageCmtClick",
-  "messageCmtCtr",
-  "messageSecondJumpImp",
-  "messageSecondJumpClick",
-  "messageSecondJumpCtr"
-] }
+        '广告账户': { report_type: 'account', columns: ["fee", "impression", "click", "ctr", "acp", "cpm", "like", "comment", "collect", "follow", "share", "interaction", "cpi", "actionButtonClick", "actionButtonCtr", "screenshot", "picSave", "reservePV", "liveSubscribeCnt", "liveSubscribeCntCost", "searchCmtClick", "searchCmtClickCvr", "searchCmtAfterReadAvg", "searchCmtAfterRead", "clkLiveRoomOrderNum", "liveAverageOrderCost", "clkLiveRoomRgmv", "clkLiveRoomRoi", "mTransAddWechatMessageUserCnt", "mTransAddWechatMessageUserCost", "mTransAddWechatSucMessageClueUidCnt", "mTransAddWechatSucMessageClueUidCost"] },
+        '广告计划': { report_type: 'campaign', columns: ["campaignName", "campaignId", "fee", "impression", "click", "ctr", "acp", "cpm", "like", "comment", "collect", "follow", "share", "interaction", "cpi", "actionButtonClick", "actionButtonCtr", "screenshot", "picSave", "reservePV", "liveSubscribeCnt", "liveSubscribeCntCost", "searchCmtClick", "searchCmtClickCvr", "searchCmtAfterReadAvg", "searchCmtAfterRead", "clkLiveRoomOrderNum", "liveAverageOrderCost", "clkLiveRoomRgmv", "clkLiveRoomRoi", "searchFirstShowImpRate", "searchFirstShowClickRate", "mTransAddWechatMessageUserCnt", "mTransAddWechatMessageUserCost", "mTransAddWechatSucMessageClueUidCnt", "mTransAddWechatSucMessageClueUidCost"] },
+        '广告单元': { report_type: 'unit', columns: ["unitName", "unitId", "campaignName", "campaignId", "fee", "impression", "click", "ctr", "acp", "cpm", "like", "comment", "collect", "follow", "share", "interaction", "cpi", "actionButtonClick", "actionButtonCtr", "screenshot", "picSave", "reservePV", "liveSubscribeCnt", "liveSubscribeCntCost", "searchCmtClick", "searchCmtClickCvr", "searchCmtAfterReadAvg", "searchCmtAfterRead", "clkLiveRoomOrderNum", "liveAverageOrderCost", "clkLiveRoomRgmv", "clkLiveRoomRoi", "searchFirstShowImpRate", "searchFirstShowClickRate", "mTransAddWechatMessageUserCnt", "mTransAddWechatMessageUserCost", "mTransAddWechatSucMessageClueUidCnt", "mTransAddWechatSucMessageClueUidCost"] },
+        '广告创意': { report_type: 'creativity', columns: ["creativityImage", "creativityName", "creativityId", "noteId", "unitName", "unitId", "campaignName", "campaignId", "programmatic", "fee", "impression", "click", "ctr", "acp", "cpm", "like", "comment", "collect", "follow", "share", "interaction", "cpi", "actionButtonClick", "actionButtonCtr", "screenshot", "picSave", "reservePV", "liveSubscribeCnt", "liveSubscribeCntCost", "searchCmtClick", "searchCmtClickCvr", "searchCmtAfterReadAvg", "searchCmtAfterRead", "clkLiveRoomOrderNum", "liveAverageOrderCost", "clkLiveRoomRgmv", "clkLiveRoomRoi", "mTransAddWechatMessageUserCnt", "mTransAddWechatMessageUserCost", "mTransAddWechatSucMessageClueUidCnt", "mTransAddWechatSucMessageClueUidCost"] },
+        '笔记': { report_type: 'note', columns: ["noteId", "fee", "impression", "click", "ctr", "acp", "cpm", "like", "comment", "collect", "follow", "share", "interaction", "cpi", "actionButtonClick", "actionButtonCtr", "screenshot", "picSave", "reservePV", "liveSubscribeCnt", "liveSubscribeCntCost", "searchCmtClick", "searchCmtClickCvr", "searchCmtAfterReadAvg", "searchCmtAfterRead", "clkLiveRoomOrderNum", "liveAverageOrderCost", "clkLiveRoomRgmv", "clkLiveRoomRoi", "mTransAddWechatMessageUserCnt", "mTransAddWechatMessageUserCost", "mTransAddWechatSucMessageClueUidCnt", "mTransAddWechatSucMessageClueUidCost", "noteMaterialType"] },
+        '关键词': { report_type: 'keyword', columns: ["keyword", "unitName", "unitId", "campaignName", "campaignId", "fee", "impression", "click", "ctr", "acp", "cpm", "dmpGroupNum", "like", "comment", "collect", "follow", "share", "interaction", "cpi", "actionButtonClick", "actionButtonCtr", "screenshot", "picSave", "reservePV", "liveSubscribeCnt", "liveSubscribeCntCost", "clkLiveRoomOrderNum", "liveAverageOrderCost", "clkLiveRoomRgmv", "clkLiveRoomRoi", "wordAvgLocation", "wordImpressionRankFirst", "wordImpressionRateFirst", "wordImpressionRankThird", "wordImpressionRateThird", "wordClickRankFirst", "wordClickRateFirst", "wordClickRankThird", "wordClickRateThird", "mTransAddWechatMessageUserCnt", "mTransAddWechatMessageUserCost", "mTransAddWechatSucMessageClueUidCnt", "mTransAddWechatSucMessageClueUidCost"] },
+        '私信': { report_type: 'message', columns: ["creativityImage", "creativityName", "creativityId", "noteId", "unitName", "unitId", "campaignName", "campaignId", "programmatic", "fee", "impression", "click", "ctr", "acp", "cpm", "messageConsult", "msgLeadsNum", "messageUser", "msgLeadsUserCnt", "messageConsultCpl", "msgLeadsCost", "initiativeMessage", "messageDrivingOpenRatio", "initiativeMessageCpl", "msgChatUserCnt", "message", "fstMessageReplyIn15sRate", "messageFstReplyTimeAvg", "messageReplyIn30sRate", "messageReplyIn1MinRate", "userPageViewPv", "userPageViewUv", "userPageMessageUserCnt", "userPageMessageCnt", "messageCmtImp", "messageCmtClick", "messageCmtCtr", "messageSecondJumpImp", "messageSecondJumpClick", "messageSecondJumpCtr"] }
     };
 
         let conversationHistory = [];
@@ -354,7 +90,6 @@
         const newChatButton = document.getElementById('new-chat-button');
         const messagesDiv = document.getElementById('chat-messages');
 
-        // 从URL参数自动填充表单
         window.onload = () => {
             const params = new URLSearchParams(window.location.search);
             if (params.has('start_date')) startDateInput.value = params.get('start_date');
@@ -368,7 +103,14 @@
             messageDiv.className = `message ${sender}`;
             const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
-            contentDiv.innerText = text;
+            
+            // MODIFIED: Use innerHTML for assistant to render Markdown
+            if (sender === 'assistant') {
+                contentDiv.innerHTML = marked.parse(text);
+            } else {
+                contentDiv.innerText = text;
+            }
+
             messageDiv.appendChild(contentDiv);
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -427,7 +169,8 @@
                                 const deltaContent = jsonData.choices?.[0]?.delta?.content;
                                 if (deltaContent) {
                                     fullResponseText += deltaContent;
-                                    aiMessageElement.innerText = fullResponseText;
+                                    // MODIFIED: Render Markdown in real-time
+                                    aiMessageElement.innerHTML = marked.parse(fullResponseText);
                                     messagesDiv.scrollTop = messagesDiv.scrollHeight;
                                 }
                             } catch (e) { /* Ignore incomplete JSON */ }
@@ -443,7 +186,11 @@
             }
         }
 
+        // MODIFIED: This function now correctly includes summary data
         async function buildSystemPrompt(userPrompt) {
+            // FIX: Get summary data from the (hidden) main page
+            const summaryDataText = localStorage.getItem('xhs_summary_data') || '未获取到页面概览数据';
+
             let detailedDataStrings = {};
             const reportsToFetch = [];
             for (const key in REPORT_TYPE_MAP) {
@@ -472,17 +219,19 @@
                 - **推广平台**: 品牌使用小红书官方的“聚光平台”进行广告推广。
                 # 可用数据
                 你现在拥有以下几类数据，请基于这些数据进行分析。如果某项数据缺失或获取失败，请在分析中说明。数据以CSV格式提供。
-                ## 广告账户数据
+                ## 1. 页面概览数据
+                {{summary-data}}
+                ## 2. 广告账户数据
                 {{account-data}}
-                ## 广告计划数据
+                ## 3. 广告计划数据
                 {{campaign-data}}
-                ## 广告创意数据
+                ## 4. 广告创意数据
                 {{creativity-data}}
-                ## 笔记数据
+                ## 5. 笔记数据
                 {{note-data}}
-                ## 关键词数据
+                ## 6. 关键词数据
                 {{keyword-data}}
-                ## 私信数据
+                ## 7. 私信数据
                 {{message-data}}
                 # 任务
                 根据用户提出的问题，结合以上所有可用数据，提供专业、深刻、有条理的数据分析报告。
@@ -492,9 +241,9 @@
                 - 使用清晰的语言和结构，如Markdown格式，让报告易于阅读。
             `;
             return systemPromptTemplate
+                .replace('{{summary-data}}', summaryDataText)
                 .replace('{{account-data}}', detailedDataStrings['广告账户'] || '用户未要求分析或获取失败')
                 .replace('{{campaign-data}}', detailedDataStrings['广告计划'] || '用户未要求分析或获取失败')
-                .replace('{{unit-data}}', detailedDataStrings['广告单元'] || '用户未要求分析或获取失败')
                 .replace('{{creativity-data}}', detailedDataStrings['广告创意'] || '用户未要求分析或获取失败')
                 .replace('{{note-data}}', detailedDataStrings['笔记'] || '用户未要求分析或获取失败')
                 .replace('{{keyword-data}}', detailedDataStrings['关键词'] || '用户未要求分析或获取失败')
