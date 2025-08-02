@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 数据分析助手</title>
+    <style>
+        :root { --primary-color: #4A90E2; --user-msg-bg: #4A90E2; --assistant-msg-bg: #FFFFFF; --system-msg-bg: #eef2f7; --bg-color: #f4f7f9; --font-color: #333; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: var(--bg-color); display: flex; justify-content: center; align-items: flex-start; padding-top: 20px; }
+        .container { width: 100%; max-width: 900px; display: flex; gap: 20px; }
+        .config-panel, .chat-panel { background-color: #fff; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); overflow: hidden; }
+        .config-panel { width: 350px; padding: 25px; display: flex; flex-direction: column; gap: 15px; align-self: flex-start; }
+        .chat-panel { flex-grow: 1; display: flex; flex-direction: column; height: 90vh; max-height: 800px; }
+        h2, h3 { color: var(--font-color); margin-top: 0; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { margin-bottom: 8px; font-weight: 500; color: #555; }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; box-sizing: border-box;
+        }
+        .form-group textarea { resize: vertical; min-height: 100px; }
+        .chat-header { padding: 15px 20px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; }
+        .chat-messages { flex-grow: 1; overflow-y: auto; padding: 20px; }
+        .message { margin-bottom: 15px; display: flex; flex-direction: column; }
+        .message.user { align-items: flex-end; } .message.assistant { align-items: flex-start; }
+        .message-content { max-width: 85%; padding: 10px 15px; border-radius: 12px; line-height: 1.6; word-wrap: break-word; white-space: pre-wrap; }
+        .message.user .message-content { background-color: var(--user-msg-bg); color: white; border-bottom-right-radius: 3px; }
+        .message.assistant .message-content { background-color: var(--assistant-msg-bg); color: var(--font-color); border: 1px solid #eee; border-bottom-left-radius: 3px; }
+        .message.system .message-content { background-color: var(--system-msg-bg); color: #557; font-size: 12px; text-align: center; padding: 5px 10px; border-radius: 8px; align-self: center; }
+        .chat-input-area { padding: 15px; border-top: 1px solid #e0e0e0; display: flex; }
+        #chat-input { flex-grow: 1; border: 1px solid #ccc; border-radius: 20px; padding: 10px 15px; font-size: 14px; resize: none; margin-right: 10px; }
+        #send-button { background-color: var(--primary-color); color: white; border: none; border-radius: 20px; padding: 10px 20px; cursor: pointer; font-size: 14px; }
+        #send-button:disabled { background-color: #999; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="config-panel">
+            <h2>数据配置</h2>
+            <div class="form-group">
+                <label for="start-date">开始日期</label>
+                <input type="date" id="start-date">
+            </div>
+            <div class="form-group">
+                <label for="end-date">结束日期</label>
+                <input type="date" id="end-date">
+            </div>
+            <div class="form-group">
+                <label for="cookie">Cookie</label>
+                <textarea id="cookie" rows="5" placeholder="请从浏览器开发者工具中复制完整的Cookie字符串"></textarea>
+            </div>
+        </div>
+        <div class="chat-panel">
+            <div class="chat-header">
+                <h3>AI 分析助手</h3>
+                <button id="new-chat-button">新对话</button>
+            </div>
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-input-area">
+                <textarea id="chat-input" placeholder="请输入您想分析的内容，例如：分析一下整体情况" rows="1"></textarea>
+                <button id="send-button">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const REPORT_TYPE_MAP = {
+        '广告账户': { report_type: 'account', columns: [
+  "fee",
+  "impression",
+  "click",
+  "ctr",
+  "acp",
+  "cpm",
+  "like",
+  "comment",
+  "collect",
+  "follow",
+  "share",
+  "interaction",
+  "cpi",
+  "actionButtonClick",
+  "actionButtonCtr",
+  "screenshot",
+  "picSave",
+  "reservePV",
+  "liveSubscribeCnt",
+  "liveSubscribeCntCost",
+  "searchCmtClick",
+  "searchCmtClickCvr",
+  "searchCmtAfterReadAvg",
+  "searchCmtAfterRead",
+  "clkLiveRoomOrderNum",
+  "liveAverageOrderCost",
+  "clkLiveRoomRgmv",
+  "clkLiveRoomRoi",
+  "mTransAddWechatMessageUserCnt",
+  "mTransAddWechatMessageUserCost",
+  "mTransAddWechatSucMessageClueUidCnt",
+  "mTransAddWechatSucMessageClueUidCost"
+] },
+        '广告计划': { report_type: 'campaign', columns: [
+  "campaignName",
+  "campaignId",
+  "fee",
+  "impression",
+  "click",
+  "ctr",
+  "acp",
+  "cpm",
+  "like",
+  "comment",
+  "collect",
+  "follow",
+  "share",
+  "interaction",
+  "cpi",
+  "actionButtonClick",
+  "actionButtonCtr",
+  "screenshot",
+  "picSave",
+  "reservePV",
+  "liveSubscribeCnt",
+  "liveSubscribeCntCost",
+  "searchCmtClick",
+  "searchCmtClickCvr",
+  "searchCmtAfterReadAvg",
+  "searchCmtAfterRead",
+  "clkLiveRoomOrderNum",
+  "liveAverageOrderCost",
+  "clkLiveRoomRgmv",
+  "clkLiveRoomRoi",
+  "searchFirstShowImpRate",
+  "searchFirstShowClickRate",
+  "mTransAddWechatMessageUserCnt",
+  "mTransAddWechatMessageUserCost",
+  "mTransAddWechatSucMessageClueUidCnt",
+  "mTransAddWechatSucMessageClueUidCost"
+] },
+        '广告单元': { report_type: 'unit', columns: [
+  "unitName",
+  "unitId",
+  "campaignName",
+  "campaignId",
+  "fee",
+  "impression",
+  "click",
+  "ctr",
+  "acp",
+  "cpm",
+  "like",
+  "comment",
+  "collect",
+  "follow",
+  "share",
+  "interaction",
+  "cpi",
+  "actionButtonClick",
+  "actionButtonCtr",
+  "screenshot",
+  "picSave",
+  "reservePV",
+  "liveSubscribeCnt",
+  "liveSubscribeCntCost",
+  "searchCmtClick",
+  "searchCmtClickCvr",
+  "searchCmtAfterReadAvg",
+  "searchCmtAfterRead",
+  "clkLiveRoomOrderNum",
+  "liveAverageOrderCost",
+  "clkLiveRoomRgmv",
+  "clkLiveRoomRoi",
+  "searchFirstShowImpRate",
+  "searchFirstShowClickRate",
+  "mTransAddWechatMessageUserCnt",
+  "mTransAddWechatMessageUserCost",
+  "mTransAddWechatSucMessageClueUidCnt",
+  "mTransAddWechatSucMessageClueUidCost"
+] },
+        '广告创意': { report_type: 'creativity', columns: [
+  "creativityImage",
+  "creativityName",
+  "creativityId",
+  "noteId",
+  "unitName",
+  "unitId",
+  "campaignName",
+  "campaignId",
+  "programmatic",
+  "fee",
+  "impression",
+  "click",
+  "ctr",
+  "acp",
+  "cpm",
+  "like",
+  "comment",
+  "collect",
+  "follow",
+  "share",
+  "interaction",
+  "cpi",
+  "actionButtonClick",
+  "actionButtonCtr",
+  "screenshot",
+  "picSave",
+  "reservePV",
+  "liveSubscribeCnt",
+  "liveSubscribeCntCost",
+  "searchCmtClick",
+  "searchCmtClickCvr",
+  "searchCmtAfterReadAvg",
+  "searchCmtAfterRead",
+  "clkLiveRoomOrderNum",
+  "liveAverageOrderCost",
+  "clkLiveRoomRgmv",
+  "clkLiveRoomRoi",
+  "mTransAddWechatMessageUserCnt",
+  "mTransAddWechatMessageUserCost",
+  "mTransAddWechatSucMessageClueUidCnt",
+  "mTransAddWechatSucMessageClueUidCost"
+] },
+        '笔记': { report_type: 'note', columns: [
+  "noteId",
+  "fee",
+  "impression",
+  "click",
+  "ctr",
+  "acp",
+  "cpm",
+  "like",
+  "comment",
+  "collect",
+  "follow",
+  "share",
+  "interaction",
+  "cpi",
+  "actionButtonClick",
+  "actionButtonCtr",
+  "screenshot",
+  "picSave",
+  "reservePV",
+  "liveSubscribeCnt",
+  "liveSubscribeCntCost",
+  "searchCmtClick",
+  "searchCmtClickCvr",
+  "searchCmtAfterReadAvg",
+  "searchCmtAfterRead",
+  "clkLiveRoomOrderNum",
+  "liveAverageOrderCost",
+  "clkLiveRoomRgmv",
+  "clkLiveRoomRoi",
+  "mTransAddWechatMessageUserCnt",
+  "mTransAddWechatMessageUserCost",
+  "mTransAddWechatSucMessageClueUidCnt",
+  "mTransAddWechatSucMessageClueUidCost",
+  "noteMaterialType"
+] },
+        '关键词': { report_type: 'keyword', columns: [
+  "keyword",
+  "unitName",
+  "unitId",
+  "campaignName",
+  "campaignId",
+  "fee",
+  "impression",
+  "click",
+  "ctr",
+  "acp",
+  "cpm",
+  "dmpGroupNum",
+  "like",
+  "comment",
+  "collect",
+  "follow",
+  "share",
+  "interaction",
+  "cpi",
+  "actionButtonClick",
+  "actionButtonCtr",
+  "screenshot",
+  "picSave",
+  "reservePV",
+  "liveSubscribeCnt",
+  "liveSubscribeCntCost",
+  "clkLiveRoomOrderNum",
+  "liveAverageOrderCost",
+  "clkLiveRoomRgmv",
+  "clkLiveRoomRoi",
+  "wordAvgLocation",
+  "wordImpressionRankFirst",
+  "wordImpressionRateFirst",
+  "wordImpressionRankThird",
+  "wordImpressionRateThird",
+  "wordClickRankFirst",
+  "wordClickRateFirst",
+  "wordClickRankThird",
+  "wordClickRateThird",
+  "mTransAddWechatMessageUserCnt",
+  "mTransAddWechatMessageUserCost",
+  "mTransAddWechatSucMessageClueUidCnt",
+  "mTransAddWechatSucMessageClueUidCost"
+] },
+        '私信': { report_type: 'message', columns: [
+  "creativityImage",
+  "creativityName",
+  "creativityId",
+  "noteId",
+  "unitName",
+  "unitId",
+  "campaignName",
+  "campaignId",
+  "programmatic",
+  "fee",
+  "impression",
+  "click",
+  "ctr",
+  "acp",
+  "cpm",
+  "messageConsult",
+  "msgLeadsNum",
+  "messageUser",
+  "msgLeadsUserCnt",
+  "messageConsultCpl",
+  "msgLeadsCost",
+  "initiativeMessage",
+  "messageDrivingOpenRatio",
+  "initiativeMessageCpl",
+  "msgChatUserCnt",
+  "message",
+  "fstMessageReplyIn15sRate",
+  "messageFstReplyTimeAvg",
+  "messageReplyIn30sRate",
+  "messageReplyIn1MinRate",
+  "userPageViewPv",
+  "userPageViewUv",
+  "userPageMessageUserCnt",
+  "userPageMessageCnt",
+  "messageCmtImp",
+  "messageCmtClick",
+  "messageCmtCtr",
+  "messageSecondJumpImp",
+  "messageSecondJumpClick",
+  "messageSecondJumpCtr"
+] }
+    };
+
+        let conversationHistory = [];
+
+        const startDateInput = document.getElementById('start-date');
+        const endDateInput = document.getElementById('end-date');
+        const cookieInput = document.getElementById('cookie');
+        const chatInput = document.getElementById('chat-input');
+        const sendButton = document.getElementById('send-button');
+        const newChatButton = document.getElementById('new-chat-button');
+        const messagesDiv = document.getElementById('chat-messages');
+
+        // 从URL参数自动填充表单
+        window.onload = () => {
+            const params = new URLSearchParams(window.location.search);
+            if (params.has('start_date')) startDateInput.value = params.get('start_date');
+            if (params.has('end_date')) endDateInput.value = params.get('end_date');
+            if (params.has('cookie')) cookieInput.value = decodeURIComponent(params.get('cookie'));
+            newChat();
+        };
+
+        function addMessage(sender, text, streamElement = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.innerText = text;
+            messageDiv.appendChild(contentDiv);
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            return streamElement ? contentDiv : null;
+        }
+
+        function newChat() {
+            messagesDiv.innerHTML = '';
+            conversationHistory = [];
+            addMessage('system', '新对话已开始，请输入您的问题。');
+        }
+
+        async function handleSendMessage() {
+            const userText = chatInput.value.trim();
+            if (!userText) return;
+
+            addMessage('user', userText);
+            conversationHistory.push({ role: 'user', content: userText });
+            chatInput.value = '';
+            setLoadingState(true);
+
+            const aiMessageElement = addMessage('assistant', '', true);
+
+            try {
+                const systemPrompt = await buildSystemPrompt(userText);
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        systemPrompt: systemPrompt,
+                        conversationHistory: conversationHistory
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'AI请求失败');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullResponseText = '';
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+                    
+                    lines.forEach(line => {
+                        if (line.startsWith('data: ')) {
+                            const jsonStr = line.substring(5).trim();
+                            if (jsonStr === '[DONE]') return;
+                            try {
+                                const jsonData = JSON.parse(jsonStr);
+                                const deltaContent = jsonData.choices?.[0]?.delta?.content;
+                                if (deltaContent) {
+                                    fullResponseText += deltaContent;
+                                    aiMessageElement.innerText = fullResponseText;
+                                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                                }
+                            } catch (e) { /* Ignore incomplete JSON */ }
+                        }
+                    });
+                }
+                conversationHistory.push({ role: 'assistant', content: fullResponseText });
+
+            } catch (error) {
+                aiMessageElement.innerText = `抱歉，出错了: ${error.message}`;
+            } finally {
+                setLoadingState(false);
+            }
+        }
+
+        async function buildSystemPrompt(userPrompt) {
+            let detailedDataStrings = {};
+            const reportsToFetch = [];
+            for (const key in REPORT_TYPE_MAP) {
+                if (userPrompt.includes(key) || userPrompt.includes('全部') || userPrompt.includes('整体')) {
+                    reportsToFetch.push(key);
+                }
+            }
+            
+            if (reportsToFetch.length > 0) {
+                const promises = reportsToFetch.map(key =>
+                    fetchReportData(REPORT_TYPE_MAP[key].report_type, REPORT_TYPE_MAP[key].columns)
+                        .then(result => ({ key, content: result }))
+                        .catch(error => ({ key, error: error.message }))
+                );
+                const results = await Promise.all(promises);
+                results.forEach(result => {
+                    detailedDataStrings[result.key] = result.content ? `\n\`\`\`csv\n${result.content}\n\`\`\`\n` : `获取失败: ${result.error || '未知错误'}`;
+                });
+            }
+            
+            const systemPromptTemplate = `
+                # 角色
+                你是一名顶级的社交媒体广告数据分析专家，尤其擅长小红书聚光平台。
+                # 背景信息
+                - **品牌现状**: 你正在为一家中小鲜花品牌提供咨询。该品牌在小红书平台营业，主营业务是售价在 300-800 元的中高客单价花束。
+                - **推广平台**: 品牌使用小红书官方的“聚光平台”进行广告推广。
+                # 可用数据
+                你现在拥有以下几类数据，请基于这些数据进行分析。如果某项数据缺失或获取失败，请在分析中说明。数据以CSV格式提供。
+                ## 广告账户数据
+                {{account-data}}
+                ## 广告计划数据
+                {{campaign-data}}
+                ## 广告创意数据
+                {{creativity-data}}
+                ## 笔记数据
+                {{note-data}}
+                ## 关键词数据
+                {{keyword-data}}
+                ## 私信数据
+                {{message-data}}
+                # 任务
+                根据用户提出的问题，结合以上所有可用数据，提供专业、深刻、有条理的数据分析报告。
+                - 如果用户要求“分析一下”或“分析整体情况”，请对所有你已成功获取的数据进行全面、综合的分析，并给出优化建议。
+                - 如果用户指定分析某个具体方面（如“分析广告计划”），请深入分析该项数据，并可以关联其他数据进行佐证。
+                - 你的分析应该包括：现状总结、发现问题、原因推测、优化建议。
+                - 使用清晰的语言和结构，如Markdown格式，让报告易于阅读。
+            `;
+            return systemPromptTemplate
+                .replace('{{account-data}}', detailedDataStrings['广告账户'] || '用户未要求分析或获取失败')
+                .replace('{{campaign-data}}', detailedDataStrings['广告计划'] || '用户未要求分析或获取失败')
+                .replace('{{unit-data}}', detailedDataStrings['广告单元'] || '用户未要求分析或获取失败')
+                .replace('{{creativity-data}}', detailedDataStrings['广告创意'] || '用户未要求分析或获取失败')
+                .replace('{{note-data}}', detailedDataStrings['笔记'] || '用户未要求分析或获取失败')
+                .replace('{{keyword-data}}', detailedDataStrings['关键词'] || '用户未要求分析或获取失败')
+                .replace('{{message-data}}', detailedDataStrings['私信'] || '用户未要求分析或获取失败');
+        }
+
+        function fetchReportData(reportType, columns) {
+            return new Promise(async (resolve, reject) => {
+                try {
+                    addMessage('system', `正在为 ${reportType} 报告请求数据...`);
+                    const response = await fetch('/api/get-report', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            start_date: startDateInput.value,
+                            end_date: endDateInput.value,
+                            cookie: cookieInput.value,
+                            report_type: reportType,
+                            columns: columns
+                        })
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || '获取报告失败');
+                    }
+                    const textData = await response.text();
+                    addMessage('system', `✅ ${reportType} 数据获取成功。`);
+                    resolve(textData);
+                } catch (error) {
+                    addMessage('system', `❌ ${reportType} 数据获取失败: ${error.message}`);
+                    reject(error);
+                }
+            });
+        }
+        
+        function setLoadingState(isLoading) {
+            chatInput.disabled = isLoading;
+            sendButton.disabled = isLoading;
+        }
+
+        sendButton.addEventListener('click', handleSendMessage);
+        newChatButton.addEventListener('click', newChat);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
