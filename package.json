@@ -9,6 +9,7 @@
   "dependencies": {
     "crypto": "^1.0.1",
     "express": "^5.1.0",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "xlsx": "^0.18.5"
   }
 }
